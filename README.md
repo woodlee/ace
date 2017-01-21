@@ -10,12 +10,12 @@ virtualenv -p /usr/local/bin/python3 venv
 source venv/bin/activate
 pip install -r requirements.txt
 export FLASK_APP=ace
+pip install --editable .
 ```
 
 Run the Flask dev server:
 
 ```
-cd ace
 flask run
 ```
 
@@ -45,4 +45,4 @@ Things I would do absent the time constraint:
 - Caching! The outbound requests are relatively expensive; we could probably do some reasonable caching of the retrieved page titles if system load warranted it.
 - Consider newer options around asyncio since I'm using Python 3. I chose grequests based on a quick search; is it really the best option? Is the library maintained?
 - Are there ramifications from getting all these pages in parallel, particularly with regard to memory usage? If there are a lot of links that direct to large pages could I effectively be DOSed?
-- Think more about package setup / deployment / etc. It's been a while since I bootstrapped a new app and I'm not at all sure I've set it all up in an ideal manner here.
+- Think more about package setup / deployment / etc. It's been a while since I bootstrapped a new app and I'm not at all sure I've set it all up in an ideal manner here. It definitely feels wonky (pip installs AND setup?? Using `pip install --editable`?).
