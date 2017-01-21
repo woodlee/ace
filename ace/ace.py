@@ -8,34 +8,39 @@ import grequests
 
 
 app = flask.Flask(__name__)
-
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024  # Extremely rudimentary DOS protection
 
 TITLE_REQUEST_TIMEOUT = 3  # seconds
 TEXT_FOR_UNAVAIL_TITLE = '<Unavailable>'
 
-MENTION_REGEX = re.compile(r'^@(\w+)')
-EMOTICON_REGEX = re.compile(r'^\(([a-zA-Z0-9]{1,15})\)')
-LINK_REGEX = re.compile(r'^(https?://\S+)')
+REGEXES = (
+    # Since these are evaluated "first-one-wins", keep them ordered by most common type first:
+    # (Which I'm only guessing at absent real data!)
+    ('mentions', re.compile(r'^@(\w+)\W*$')),
+    ('emoticons', re.compile(r'^\(([a-zA-Z0-9]{1,15})\)$')),
+    ('links', re.compile(r'^(https?://\S+)$', re.I)),
+)
 
 
 def parse_message(message):
-    mentions, emoticons, links = [], [], []
+    result = {}
     for word in message.split():
-        mentions.extend(MENTION_REGEX.findall(word))
-        emoticons.extend(EMOTICON_REGEX.findall(word))
-        links.extend(LINK_REGEX.findall(word))
-    links = validate_links(links)
-    return (mentions, emoticons, links)
+        for kind, regex in REGEXES:
+            found = regex.findall(word)
+            if found:
+                result.setdefault(kind, []).extend(found)
+                break
+    if 'links' in result:
+        result['links'] = validate_links(result['links'])
+    return result
 
 
 def get_title_from_response(response):
-    if not response:
-        return TEXT_FOR_UNAVAIL_TITLE
-    soup = bs4.BeautifulSoup(response.text, 'html.parser')
-    if soup.title:
-        return html.escape(soup.title.text) or TEXT_FOR_UNAVAIL_TITLE
-    else:
-        return TEXT_FOR_UNAVAIL_TITLE
+    if response and response.ok:
+        soup = bs4.BeautifulSoup(response.text, 'html.parser')
+        if soup.title and soup.title.text:
+            return html.escape(soup.title.text)
+    return TEXT_FOR_UNAVAIL_TITLE
 
 
 def validate_links(links):
@@ -43,8 +48,9 @@ def validate_links(links):
     for link in links:
         parsed_link = urllib.parse.urlsplit(link)
         if parsed_link.scheme in ('http', 'https') and parsed_link.netloc:
+            # TODO: more sophisticated checking of the parsed bits?
             parsable_links.append(link)
-    responses = grequests.map([
+    responses = grequests.map([  # Hopefully concurrent requesting if multiple links
         grequests.get(link, timeout=TITLE_REQUEST_TIMEOUT) for link in parsable_links
     ])
     return [
@@ -60,16 +66,5 @@ def validate_links(links):
 def parse_endpoint():
     message = flask.request.form.get('message')
     if message is None:
-        flask.abort(400)
-
-    mentions, emoticons, links = parse_message(message)
-
-    response = {}
-    if mentions:
-        response['mentions'] = mentions
-    if emoticons:
-        response['emoticons'] = emoticons
-    if links:
-        response['links'] = links
-
-    return flask.jsonify(**response)
+        flask.abort(400, 'Please provide a "message" parameter')
+    return flask.jsonify(**parse_message(message))
