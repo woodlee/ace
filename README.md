@@ -45,3 +45,4 @@ Things I would do absent the time constraint:
 - Consider newer options around asyncio since I'm using Python 3. I chose grequests based on a quick search; is it really the best option? Is the library maintained?
 - Are there ramifications from getting all these pages in parallel, particularly with regard to memory usage? If there are a lot of links that direct to large pages could I effectively be DOSed?
 - Think more about package setup / deployment / etc. It's been a while since I bootstrapped a new app and I'm not at all sure I've set it all up in an ideal manner here. It definitely feels wonky (pip installs AND setup?? Use of `pip install --editable`?).
+- Learn to use Bitbucket and submit this there! :)
